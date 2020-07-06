@@ -15,6 +15,7 @@
     <Compile Include="lib/Sprite.fs" />
     <Compile Include="lib/Tiled.fs" />
     <Compile Include="lib/Script.fs" />
+    <Compile Include="lib/GameObject.fs" />
     <Compile Include="Program.fs" />
   </ItemGroup>
 

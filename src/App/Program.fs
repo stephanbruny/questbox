@@ -8,85 +8,52 @@ open System.IO
 
 open QuestBox
 open QuestBox.Dispatcher
-
-let rec gameLoop (onDraw) =
-    while (not(Raylib.WindowShouldClose())) do
-        Raylib.BeginDrawing()
-
-        Raylib.ClearBackground(Color.BLUE)
-
-        onDraw ()
-
-        Raylib.EndDrawing()
-        gameLoop(onDraw)
-
-let runScript path =
-    let file = File.getTextFile path
-    // let compile = CSharpScript.EvaluateAsync file |> Async.AwaitTask |> Async.RunSynchronously
-    let script = CSharpScript.Create (file, ScriptOptions.Default, typeof<Script.Api>)
-    use stream = new MemoryStream()
-    let compile = script.GetCompilation().Emit(stream)
-    if compile.Success then
-        let asm = Assembly.Load(stream.ToArray())
-        script.RunAsync(globals = Script.Api() ) |> Async.AwaitTask |> Async.RunSynchronously |> ignore
-        printf "Compile: %A" (asm.GetTypes())
-    else 
-        printf "Huh? %A" compile.Diagnostics
-    ()
+open QuestBox.GameObject
 
 let messageBus = Dispatcher.Dispatcher([| "foo"; "bar"; "input" |])
 
-type GameObject = {
-    OnUpdate : float32 -> unit;
-    OnDraw : unit -> unit;
-}
-
-type TestActor (name) as self =
-    inherit Dispatcher.Actor(messageBus)
-
-    let mutable position = (0.0f, 0.0f)
-    let mutable animation = Animation.loadAnimation "game/assets/animation/sparky.json" |> Option.map (Animation.setAnimationState "Spark")
-
-    member this.Move (x, y) = 
-        let x1, y1 = position
-        position <- (x1 + x, y1 + y)
-
-    member this.SetPosition (x, y) = position <- (x, y)
+type SparkyBehavior (sparky : BaseObject) =
+    inherit Behavior<BaseObject>(messageBus, sparky)
 
     [<Action ("input", "keyPressed")>]
     member this.OnKey (msg : MessageContent option) = 
         match msg with
         | Some (Text str) -> 
             match str with
-            | "left" -> self.Move(-1.0f, 0.0f)
-            | "right" -> self.Move(1.0f, 0.0f)
-            | "up" -> self.Move(0.0f, -1.0f)
-            | "down" -> self.Move(0.0f, 1.0f)
+            | "left" -> this.GameObject.Move(-1.0f, 0.0f)
+            | "right" -> this.GameObject.Move(1.0f, 0.0f)
+            | "up" -> this.GameObject.Move(0.0f, -1.0f)
+            | "down" -> this.GameObject.Move(0.0f, 1.0f)
             | _ -> ()
         | _ -> ()
 
-    member this.GameObject = 
-        {
-            OnUpdate = fun dt -> 
-                animation <- animation |> Option.map(Animation.updateAnimation dt) 
-            OnDraw = fun () -> animation |> Option.map(Animation.drawAnimation (position)) |> ignore
-        }
+
+type Sparky () as self =
+    inherit BaseObject(messageBus)
+    let mutable animation = Animation.loadAnimation "game/assets/animation/sparky.json" |> Option.map (Animation.setAnimationState "Spark")
+
+    do
+        self.AddBehavior (SparkyBehavior(self))
+
+    override this.OnUpdate dt =
+        animation <- animation |> Option.map(Animation.updateAnimation dt) 
+
+    override this.OnDraw () =
+        animation |> Option.map(Animation.drawAnimation (this.Position.X, this.Position.Y)) |> ignore
 
 
 [<EntryPoint>]
 let main argv =
     Raylib.InitWindow(1280, 720, "Questbox")
 
-    runScript "game/script/test.csx"
-
-    let mutable objects : GameObject [] = Array.empty
+    let mutable objects : BaseObject [] = Array.empty
 
     let addItem arr obj = arr |> Array.append [| obj |]
     let addObjects = addItem objects
 
-    let sparky = TestActor("Sparky")
+    let sparky = Sparky()
 
-    objects <- addObjects sparky.GameObject
+    objects <- addObjects sparky
 
     messageBus.Publish "foo" "foo" None
 
@@ -99,10 +66,10 @@ let main argv =
         if (Raylib.IsKeyDown(KeyboardKey.KEY_LEFT)) then messageBus.Publish "input" "keyPressed" (Some(Text "left"))
         if (Raylib.IsKeyDown(KeyboardKey.KEY_UP)) then messageBus.Publish "input" "keyPressed" (Some(Text "up"))
         if (Raylib.IsKeyDown(KeyboardKey.KEY_DOWN)) then messageBus.Publish "input" "keyPressed" (Some(Text "down"))
-        if (Raylib.IsKeyDown(KeyboardKey.KEY_SPACE)) then 
-            let n = TestActor("sparky next")
-            objects <- objects |> Array.append [|n.GameObject|]
-            printf "Objects: %i" objects.Length
+        // if (Raylib.IsKeyDown(KeyboardKey.KEY_SPACE)) then 
+        //     let n = TestActor("sparky next")
+        //     objects <- objects |> Array.append [|n.GameObject|]
+        //     printf "Objects: %i" objects.Length
         
         Raylib.BeginDrawing()
 
