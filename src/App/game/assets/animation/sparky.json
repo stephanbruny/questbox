@@ -1,0 +1,13 @@
+{
+    "Image": "game/assets/sprites/sparky.png",
+    "States": {
+        "Default": [
+            { "X": 0, "Y": 0, "Width": 16, "Height": 16, "Duration": 1.0 }
+        ],
+        "Spark": [
+            { "X": 0, "Y": 0, "Width": 16, "Height": 16, "Duration": 0.2 },
+            { "X": 16, "Y": 0, "Width": 16, "Height": 16, "Duration": 0.2 },
+            { "X": 32, "Y": 0, "Width": 16, "Height": 16, "Duration": 0.2 }
+        ]
+    }
+}

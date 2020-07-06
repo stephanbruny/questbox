@@ -1,0 +1,38 @@
+﻿<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <OutputType>Exe</OutputType>
+    <TargetFramework>netcoreapp3.1</TargetFramework>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <Compile Include="lib/Cache.fs" />
+    <Compile Include="lib/Dispatcher.fs" />
+    <Compile Include="lib/File.fs" />
+    <Compile Include="lib/Geometry.fs" />
+    <Compile Include="lib/TextureCache.fs" />
+    <Compile Include="lib/Animation.fs" />
+    <Compile Include="lib/Sprite.fs" />
+    <Compile Include="lib/Tiled.fs" />
+    <Compile Include="lib/Script.fs" />
+    <Compile Include="Program.fs" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <Content Include="game/**/*.*">
+      <CopyToOutputDirectory>Always</CopyToOutputDirectory>
+    </Content>  
+  </ItemGroup>
+
+  <ItemGroup>
+    <PackageReference Include="FSharp.Compiler" Version="3.0.0.0" />
+    <PackageReference Include="FSharp.Compiler.Service" Version="36.0.3" />
+    <PackageReference Include="FSharp.Data" Version="3.3.3" />
+    <PackageReference Include="Microsoft.CodeAnalysis.CSharp" Version="3.6.0" />
+    <PackageReference Include="Microsoft.CodeAnalysis.CSharp.Scripting" Version="3.6.0" />
+    <PackageReference Include="Newtonsoft.Json" Version="12.0.3" />
+    <PackageReference Include="Raylib-cs" Version="3.1.6" />
+  </ItemGroup>
+
+
+</Project>
