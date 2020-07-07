@@ -110,6 +110,8 @@ let main argv =
 
     OpenBox.Tiled.test()
 
+    Raylib.UnloadRenderTexture canvas
+
     Raylib.CloseWindow()
 
     0 // return an integer exit code

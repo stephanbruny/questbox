@@ -1,10 +1,10 @@
 namespace OpenBox
 
-open FSharp.Data
+open Newtonsoft.Json
+open QuestBox
 
 module Tiled =
 
-    type MapFile = XmlProvider<"lib/Tiled/map-format.tmx">
 
     type TiledPropertyValue = 
     | String of string
@@ -17,7 +17,21 @@ module Tiled =
     type TiledProperty = {
         name : string;
         ``type`` : string;
-        value : TiledPropertyValue
+        value : obj;
+    }
+
+    type TiledLayer = {
+        id: uint32;
+        data : uint32 [];
+        width: int;
+        height: int;
+        x: int;
+        y: int;
+        name: string;
+        opacity: float32;
+        visible: bool;
+        properties: TiledProperty [];
+        ``type``: string;
     }
 
     type TiledMap = {
@@ -31,9 +45,35 @@ module Tiled =
         tiledversion : string;
         orientation : string;
         properties : TiledProperty [];
+        layers: TiledLayer [];
     }
 
+    type TiledTile = {
+        Gid : uint32;
+        FlipX : bool;
+        FlipY: bool;
+        FlipXY : bool;
+    }
+
+    let getTile (gid : uint32) =
+        let maskFlipX  = 0b10000000000000000000000000000000u
+        let maskFlipY  = 0b01000000000000000000000000000000u
+        let maskFlipXY = 0b00100000000000000000000000000000u
+        let maskGid    = 0b00011111111111111111111111111111u
+        
+        let globalId = gid &&& maskGid
+        {
+            Gid = globalId // &&& ~~~( maskFlipX ||| maskFlipY ||| maskFlipXY );
+            FlipX = gid &&& maskFlipX <> 0u;
+            FlipY = gid &&& maskFlipY <> 0u;
+            FlipXY = gid &&& maskFlipXY <> 0u;
+        }
+
     let test () = 
-        let map = MapFile.Load "game/assets/map/map-format.tmx"
-        printf "Map: %A\n" map
+
+        let map = File.getJson<TiledMap> "game/assets/map/cave.json"
+        let layerData = map.layers |> Array.filter(fun layer -> layer.``type`` = "tilelayer") |> Array.map(fun layer -> layer.data)
+        let layers = layerData |> Array.map(fun l -> l |> Array.map getTile)
+
+        printfn "Map: %A" layers
 
