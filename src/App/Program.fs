@@ -5,6 +5,7 @@ open Microsoft.CodeAnalysis.CSharp.Scripting
 open Microsoft.CodeAnalysis.Scripting
 open System.Reflection
 open System.IO
+open System.Numerics
 
 open QuestBox
 open QuestBox.Dispatcher
@@ -27,13 +28,19 @@ type SparkyBehavior (sparky : BaseObject) =
             | _ -> ()
         | _ -> ()
 
+type DisplayConfig = {
+    Width: int;
+    Height: int;
+}
 
-type Sparky () as self =
+type AppConfig = {
+    Display : DisplayConfig;
+    VirtualDisplay : DisplayConfig;
+}
+
+type Sparky () =
     inherit BaseObject(messageBus)
     let mutable animation = Animation.loadAnimation "game/assets/animation/sparky.json" |> Option.map (Animation.setAnimationState "Spark")
-
-    do
-        self.AddBehavior (SparkyBehavior(self))
 
     override this.OnUpdate dt =
         animation <- animation |> Option.map(Animation.updateAnimation dt) 
@@ -44,7 +51,12 @@ type Sparky () as self =
 
 [<EntryPoint>]
 let main argv =
-    Raylib.InitWindow(1280, 720, "Questbox")
+
+    let config = File.getJson<AppConfig> "game/conf.json"
+    printf "Config: %A\n" config
+    Raylib.InitWindow(config.Display.Width, config.Display.Height, "Questbox")
+
+    let canvas = Raylib.LoadRenderTexture(config.VirtualDisplay.Width, config.VirtualDisplay.Height)
 
     let mutable objects : BaseObject [] = Array.empty
 
@@ -52,12 +64,20 @@ let main argv =
     let addObjects = addItem objects
 
     let sparky = Sparky()
+    sparky.AddBehavior(SparkyBehavior)
 
     objects <- addObjects sparky
 
     messageBus.Publish "foo" "foo" None
 
     Raylib.SetTargetFPS 60
+
+    let canvasSource = Rectangle(0.0f, 0.0f, float32 config.VirtualDisplay.Width, float32 -config.VirtualDisplay.Height)
+    let canvasDestination = Rectangle(0.0f, 0.0f, float32 config.Display.Width, float32 config.Display.Height)
+
+    let drawCanvas () = 
+        Raylib.DrawTexturePro(canvas.texture, canvasSource, canvasDestination, Vector2(0.0f, 0.0f), 0.0f, Color.WHITE)
+
 
     while (not(Raylib.WindowShouldClose())) do
         let dt = Raylib.GetFrameTime()
@@ -71,12 +91,16 @@ let main argv =
         //     objects <- objects |> Array.append [|n.GameObject|]
         //     printf "Objects: %i" objects.Length
         
-        Raylib.BeginDrawing()
-
+        Raylib.BeginTextureMode canvas
         Raylib.ClearBackground(Color.BLUE)
-
         for o in objects do
             o.OnDraw()
+        Raylib.EndTextureMode()
+
+        Raylib.BeginDrawing()
+        Raylib.ClearBackground(Color.BLUE)
+
+        drawCanvas()
 
         Raylib.DrawFPS(10, 10)
 

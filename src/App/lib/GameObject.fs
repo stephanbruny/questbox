@@ -35,7 +35,7 @@ module GameObject =
             ()
 
         abstract member OnDraw : unit -> unit;
-         default this.OnDraw () = ()
+        default this.OnDraw () = ()
 
         abstract member OnRemove : unit -> unit;
         default this.OnRemove () = ()
@@ -58,7 +58,9 @@ module GameObject =
 
         member public this.RemoveProperty name = properties <- properties |> Map.remove name
 
-        member public this.AddBehavior behavior = behaviors <- behaviors |> Array.append [| behavior |]
+        member public this.AddBehavior (behaviorType) = 
+            let behavior = behaviorType(this)
+            behaviors <- behaviors |> Array.append [| behavior |]
 
         member public this.Position = position
     
