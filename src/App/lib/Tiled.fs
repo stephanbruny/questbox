@@ -34,6 +34,11 @@ module Tiled =
         ``type``: string;
     }
 
+    type TiledTileset = {
+        firstgid : uint32;
+        source : string;
+    }
+
     type TiledMap = {
         width : int;
         height : int;
@@ -46,6 +51,7 @@ module Tiled =
         orientation : string;
         properties : TiledProperty [];
         layers: TiledLayer [];
+        tilesets : TiledTileset [];
     }
 
     type TiledTile = {
@@ -56,14 +62,12 @@ module Tiled =
     }
 
     let getTile (gid : uint32) =
-        let maskFlipX  = 0b10000000000000000000000000000000u
-        let maskFlipY  = 0b01000000000000000000000000000000u
-        let maskFlipXY = 0b00100000000000000000000000000000u
-        let maskGid    = 0b00011111111111111111111111111111u
-        
-        let globalId = gid &&& maskGid
+        let maskFlipX  = 0x80000000u// 0b10000000000000000000000000000000u
+        let maskFlipY  = 0x40000000u //0b01000000000000000000000000000000u
+        let maskFlipXY = 0x20000000u // 0b00100000000000000000000000000000u
+        /// let maskGid    = 0b00011111111111111111111111111111u
         {
-            Gid = globalId // &&& ~~~( maskFlipX ||| maskFlipY ||| maskFlipXY );
+            Gid = gid &&& ~~~( maskFlipX ||| maskFlipY ||| maskFlipXY );
             FlipX = gid &&& maskFlipX <> 0u;
             FlipY = gid &&& maskFlipY <> 0u;
             FlipXY = gid &&& maskFlipXY <> 0u;
@@ -71,7 +75,7 @@ module Tiled =
 
     let test () = 
 
-        let map = File.getJson<TiledMap> "game/assets/map/cave.json"
+        let map = File.getJson<TiledMap> "game/assets/map/dungeon.json"
         let layerData = map.layers |> Array.filter(fun layer -> layer.``type`` = "tilelayer") |> Array.map(fun layer -> layer.data)
         let layers = layerData |> Array.map(fun l -> l |> Array.map getTile)
 
