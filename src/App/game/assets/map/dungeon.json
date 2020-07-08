@@ -49,7 +49,7 @@
  "tilesets":[
         {
          "firstgid":1,
-         "source":"tilesets\/tileset_Wastelandsv2.tsx"
+         "source":"tilesets\/tileset_Wastelandsv2.json"
         }],
  "tilewidth":16,
  "type":"map",

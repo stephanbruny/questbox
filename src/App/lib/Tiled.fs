@@ -1,5 +1,7 @@
 namespace OpenBox
 
+open System.Numerics
+open Raylib_cs
 open Newtonsoft.Json
 open QuestBox
 
@@ -34,7 +36,7 @@ module Tiled =
         ``type``: string;
     }
 
-    type TiledTileset = {
+    type TiledTilesetReference = {
         firstgid : uint32;
         source : string;
     }
@@ -51,14 +53,40 @@ module Tiled =
         orientation : string;
         properties : TiledProperty [];
         layers: TiledLayer [];
-        tilesets : TiledTileset [];
+        tilesets : TiledTilesetReference [];
     }
 
-    type TiledTile = {
+    type TiledTileReference = {
         Gid : uint32;
         FlipX : bool;
         FlipY: bool;
         FlipXY : bool;
+    }
+
+    type TiledTileAnimation = {
+        ``duration``: int;
+        ``tileid``: uint32;
+    }
+
+    type TiledTile = {
+        ``id``: uint32;
+        ``properties``: TiledProperty [];
+        ``animation``: TiledTileAnimation [];
+    }
+
+    type TiledTileset = {
+         ``image``: string;
+         ``imageheight``: int;
+         ``imagewidth`` : int;
+         ``margin``: int;
+         ``name``: string;
+         ``spacing``: int;
+         ``tilecount``: int;
+         ``tiledversion``: string;
+         ``tileheight``: int;
+         ``tilewidth``: int;
+         ``columns``: int;
+         ``tiles``: TiledTile [];
     }
 
     let getTile (gid : uint32) =
@@ -73,11 +101,29 @@ module Tiled =
             FlipXY = gid &&& maskFlipXY <> 0u;
         }
 
+    type Tile = {
+        SourceRect : Rectangle;
+        Attributes : TiledTile option;
+    }
+
+    let getTileTileset tile tilesets =
+        tilesets |> Array.filter(fun tileset -> tileset.firstgid <= tile.Gid) |> Array.sortBy (fun ts -> ts.firstgid) |> Array.last
+
+    let findTiledTile tileset gid = tileset.tiles |> Array.tryFind (fun t -> t.id = gid)
+
+    let getTileInstance tileset (gid : uint32) =
+        let x = float32 (((int gid - 1) * (tileset.tilewidth + tileset.spacing)) % tileset.imagewidth)
+        let y = float32 ((int gid - 1) % tileset.columns * (tileset.tileheight + tileset.spacing))
+        {
+            SourceRect = Rectangle(x, y, float32 tileset.tilewidth, float32 tileset.tileheight);
+            Attributes = findTiledTile tileset gid
+        }
+
     let test () = 
 
         let map = File.getJson<TiledMap> "game/assets/map/dungeon.json"
         let layerData = map.layers |> Array.filter(fun layer -> layer.``type`` = "tilelayer") |> Array.map(fun layer -> layer.data)
         let layers = layerData |> Array.map(fun l -> l |> Array.map getTile)
-
-        printfn "Map: %A" layers
+        let tilesets = map.tilesets |> Array.map(fun ts -> File.getJson<TiledTileset> ("game/assets/map/" + ts.source))
+        printfn "Map: %A, %A" layers tilesets
 
