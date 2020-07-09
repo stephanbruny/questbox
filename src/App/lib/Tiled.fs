@@ -143,12 +143,7 @@ module Tiled =
 
                 let modX = (if tile.FlipX && not (tile.FlipD) then -1 else 1) |> float32
                 let modY = (if tile.FlipY && not (tile.FlipD) then -1 else 1) |> float32
-                let modR = 
-                    if tile.FlipX then
-                        if tile.FlipY then -90.0f else 90.0f
-                    else
-                        if tile.FlipY then -90.0f else 90.0f
-
+                let modR = if tile.FlipY then -90.0f else 90.0f
                 let r = (if tile.FlipD then modR else 0.0f)
                 let ox = if tile.FlipX then 0.0f else 16.0f
                 let oy = if tile.FlipY then 0.0f else 16.0f

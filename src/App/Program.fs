@@ -48,6 +48,50 @@ type Sparky () =
     override this.OnDraw () =
         animation |> Option.map(Animation.drawAnimation (this.Position.X, this.Position.Y)) |> ignore
 
+type Camera () as self = 
+    inherit BaseObject(messageBus)
+
+    let mutable cam : Camera2D = Camera2D(Vector2(0.0f, 0.0f), self.Position, 0.0f, 0.5f)
+    let mutable moveX = 0.0f
+    let mutable moveY = 0.0f
+    
+    let speed = 100.0f
+
+    member public this.Camera = cam
+
+    [<Action ("input", "keyPressed")>]
+    member this.OnKey (msg : MessageContent option) = 
+        match msg with
+        | Some (Text str) ->
+            match str with
+            | "left" -> moveX <- -1.0f
+            | "right" -> moveX <- 1.0f
+            | "up" -> moveY <- -1.0f
+            | "down" -> moveY <- 1.0f
+            | _ -> ()
+            ()
+        | _ -> ()
+    
+    [<Action ("input", "keyReleased")>]
+    member this.OnKeyReleased (msg : MessageContent option) = 
+        match msg with
+        | Some (Text str) ->
+            match str with
+            | "left" -> moveX <- 0.0f
+            | "right" -> moveX <- 0.0f
+            | "up" -> moveY <- 0.0f
+            | "down" -> moveY <- 0.0f
+            | _ -> ()
+            ()
+        | _ -> ()
+
+    override this.OnUpdate dt =
+        self.MoveSync (moveX * speed, moveY * speed, dt)
+        cam.target <- Vector2(
+            self.Position.X |> float |> System.Math.Floor |> float32,
+            self.Position.Y |> float |> System.Math.Floor |> float32
+        )
+
 
 [<EntryPoint>]
 let main argv =
@@ -65,8 +109,9 @@ let main argv =
 
     let sparky = Sparky()
     sparky.AddBehavior(SparkyBehavior)
+    let cam = Camera()
 
-    objects <- addObjects sparky
+    objects <- objects |> Array.append [| sparky; cam |]
 
     messageBus.Publish "foo" "foo" None
 
@@ -88,16 +133,22 @@ let main argv =
         if (Raylib.IsKeyDown(KeyboardKey.KEY_LEFT)) then messageBus.Publish "input" "keyPressed" (Some(Text "left"))
         if (Raylib.IsKeyDown(KeyboardKey.KEY_UP)) then messageBus.Publish "input" "keyPressed" (Some(Text "up"))
         if (Raylib.IsKeyDown(KeyboardKey.KEY_DOWN)) then messageBus.Publish "input" "keyPressed" (Some(Text "down"))
+        if (Raylib.IsKeyReleased(KeyboardKey.KEY_RIGHT)) then messageBus.Publish "input" "keyReleased" (Some(Text "right"))
+        if (Raylib.IsKeyReleased(KeyboardKey.KEY_LEFT)) then messageBus.Publish "input" "keyReleased" (Some(Text "left"))
+        if (Raylib.IsKeyReleased(KeyboardKey.KEY_UP)) then messageBus.Publish "input" "keyReleased" (Some(Text "up"))
+        if (Raylib.IsKeyReleased(KeyboardKey.KEY_DOWN)) then messageBus.Publish "input" "keyReleased" (Some(Text "down"))
         // if (Raylib.IsKeyDown(KeyboardKey.KEY_SPACE)) then 
         //     let n = TestActor("sparky next")
         //     objects <- objects |> Array.append [|n.GameObject|]
         //     printf "Objects: %i" objects.Length
         
         Raylib.BeginTextureMode canvas
+        Raylib.BeginMode2D(cam.Camera)
         Raylib.ClearBackground(Color.BLACK)
         drawMap ()
         for o in objects do
             o.OnDraw()
+        Raylib.EndMode2D()
         Raylib.EndTextureMode()
 
         Raylib.BeginDrawing()
