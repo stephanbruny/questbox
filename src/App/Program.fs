@@ -75,6 +75,8 @@ let main argv =
     let canvasSource = Rectangle(0.0f, 0.0f, float32 config.VirtualDisplay.Width, float32 -config.VirtualDisplay.Height)
     let canvasDestination = Rectangle(0.0f, 0.0f, float32 config.Display.Width, float32 config.Display.Height)
 
+    let drawMap = QuestBox.Tiled.getDrawTest ()
+
     let drawCanvas () = 
         Raylib.DrawTexturePro(canvas.texture, canvasSource, canvasDestination, Vector2(0.0f, 0.0f), 0.0f, Color.WHITE)
 
@@ -92,7 +94,8 @@ let main argv =
         //     printf "Objects: %i" objects.Length
         
         Raylib.BeginTextureMode canvas
-        Raylib.ClearBackground(Color.BLUE)
+        Raylib.ClearBackground(Color.BLACK)
+        drawMap ()
         for o in objects do
             o.OnDraw()
         Raylib.EndTextureMode()
@@ -108,7 +111,7 @@ let main argv =
         
         // messageBus.Flush ()
 
-    OpenBox.Tiled.test()
+    QuestBox.Tiled.test()
 
     Raylib.UnloadRenderTexture canvas
 
