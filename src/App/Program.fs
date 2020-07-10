@@ -120,7 +120,7 @@ let main argv =
     let canvasSource = Rectangle(0.0f, 0.0f, float32 config.VirtualDisplay.Width, float32 -config.VirtualDisplay.Height)
     let canvasDestination = Rectangle(0.0f, 0.0f, float32 config.Display.Width, float32 config.Display.Height)
 
-    let drawMap = QuestBox.Tiled.getDrawTest ()
+    let (updateMap, drawMap) = QuestBox.Tiled.getDrawTest ()
 
     let drawCanvas () = 
         Raylib.DrawTexturePro(canvas.texture, canvasSource, canvasDestination, Vector2(0.0f, 0.0f), 0.0f, Color.WHITE)
@@ -129,6 +129,7 @@ let main argv =
     while (not(Raylib.WindowShouldClose())) do
         let dt = Raylib.GetFrameTime()
         objects |> Array.Parallel.iter(fun o -> o.OnUpdate (dt))
+        updateMap dt
         if (Raylib.IsKeyDown(KeyboardKey.KEY_RIGHT)) then messageBus.Publish "input" "keyPressed" (Some(Text "right"))
         if (Raylib.IsKeyDown(KeyboardKey.KEY_LEFT)) then messageBus.Publish "input" "keyPressed" (Some(Text "left"))
         if (Raylib.IsKeyDown(KeyboardKey.KEY_UP)) then messageBus.Publish "input" "keyPressed" (Some(Text "up"))
@@ -162,7 +163,7 @@ let main argv =
         
         // messageBus.Flush ()
 
-    QuestBox.Tiled.test()
+    // QuestBox.Tiled.test()
 
     Raylib.UnloadRenderTexture canvas
 

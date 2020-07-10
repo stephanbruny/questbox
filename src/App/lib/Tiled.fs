@@ -70,8 +70,8 @@ module Tiled =
 
     type TiledTile = {
         ``id``: uint32;
-        ``properties``: TiledProperty [];
         ``animation``: TiledTileAnimation [];
+        ``properties``: TiledProperty [];
     }
 
     type TiledTileset = {
@@ -102,9 +102,23 @@ module Tiled =
             FlipD = gid &&& maskFlipXY <> 0u;
         }
 
+    type TileAnimation = {
+        Time : float32;
+        CurrentGid : uint32;
+        CurrentDuration : float32;
+    }
+
     type Tile = {
         SourceRect : Rectangle;
         Attributes : TiledTile option;
+        Time : float32;
+        AnimationIndex : int;
+        Tileset : TiledTileset;
+        Reference : TiledTileReference;
+    }
+
+    type Layer = {
+        Tiles : Tile [];
     }
 
     let textureCache = Cache.GenericCache<Texture2D>(Raylib.LoadTexture, fun path texture -> Raylib.UnloadTexture texture)
@@ -115,60 +129,88 @@ module Tiled =
         | _ -> 
             tilesets |> Array.filter(fun tileset -> tileset.firstgid <= tile.Gid) |> Array.sortBy (fun ts -> ts.firstgid) |> Array.last
 
-    let findTiledTile tileset gid = tileset.tiles |> Array.tryFind (fun t -> t.id = gid)
+    let findTiledTile tileset gid = tileset.tiles |> Array.tryFind (fun t -> t.id = gid - tileset.firstgid)
 
-    let getTileInstance tileset (gid : uint32) =
+    let getTileSourceRect tileset gid =
         let tileWidth = tileset.tilewidth + tileset.spacing
         let tileHeight = tileset.tileheight + tileset.spacing
         let rows = tileset.columns |> uint32 // tileset.imagewidth / tileWidth |> uint32
         let tileIndex = gid - 1u
         let x = tileIndex % rows |> float32
         let y = tileIndex / rows |> float32
+        Rectangle(x * (float32 tileWidth), y * (float32 tileHeight), float32 tileset.tilewidth, float32 tileset.tileheight)
+
+
+    let getTileInstance tileset (tile : TiledTileReference) =
         {
-            SourceRect = Rectangle(x * (float32 tileWidth), y * (float32 tileHeight), float32 tileset.tilewidth, float32 tileset.tileheight);
-            Attributes = findTiledTile tileset gid
+            SourceRect = getTileSourceRect tileset tile.Gid
+            Attributes = findTiledTile tileset tile.Gid;
+            Time = 0.0f;
+            AnimationIndex = 0;
+            Tileset = tileset;
+            Reference = tile;
         }
+
+    let updateTile dt (tile : Tile) =
+        match tile.Attributes with
+        | Some attributes ->
+            if not (isNull attributes.animation) then
+                let animationArray = attributes.animation
+                let time = tile.Time + dt
+                let current = animationArray.[tile.AnimationIndex]
+                let duration = (float32 current.duration) / 1000.0f
+                if time >= duration then 
+                    let i = tile.AnimationIndex + 1
+                    let newIndex = if i >= animationArray.Length then 0 else i
+                    let sourceRect = getTileSourceRect tile.Tileset (animationArray.[newIndex].tileid + 1u)
+                    { tile with Time = 0.0f; AnimationIndex = newIndex; SourceRect = sourceRect}
+                else
+                    { tile with Time = tile.Time + dt }
+            else tile
+        | None -> tile
+        
+
+    let updateTiles dt (tiles : Tile option []) =
+        tiles |> Array.Parallel.map (Option.map(updateTile dt))
 
     let toRad num = (System.Math.PI / 180.0) * num;
 
-    let renderTileLayer map tilesets (layer : TiledTileReference []) =
-        layer |> Array.iteri(fun idx tile ->
+    let getInstanceLayer tilesets (layer : TiledTileReference []) =
+        layer |> Array.map(fun tile ->
             if tile.Gid > 0u then
                 let tileset = getTileTileset tile tilesets
-                let rows = map.width
-                let x = (idx % rows) * tileset.tilewidth |> float32
-                let y = (idx / rows) * tileset.tileheight |> float32
-                let tileInst = getTileInstance tileset tile.Gid
-                let texture = textureCache.Load ("game/assets/map/tilesets/" + tileset.image)
+                getTileInstance tileset tile |> Some
+            else None
+        )
 
-                let modX = (if tile.FlipX && not (tile.FlipD) then -1 else 1) |> float32
-                let modY = (if tile.FlipY && not (tile.FlipD) then -1 else 1) |> float32
-                let modR = if tile.FlipY then -90.0f else 90.0f
-                let r = (if tile.FlipD then modR else 0.0f)
-                let ox = if tile.FlipX then 0.0f else 16.0f
-                let oy = if tile.FlipY then 0.0f else 16.0f
-                let origin = if tile.FlipD then Vector2(ox, oy) else Vector2(0.0f, 0.0f)
-                let rect = Rectangle( tileInst.SourceRect.x, tileInst.SourceRect.y, tileInst.SourceRect.width * modX, tileInst.SourceRect.height * modY )
+    let renderTileLayer map tilesets (layer : Tile option []) =
+        layer |> Array.iteri(fun idx maybeTile ->
+            match maybeTile with 
+            | Some tile ->
+                let rows = map.width
+                let x = (idx % rows) * tile.Tileset.tilewidth |> float32
+                let y = (idx / rows) * tile.Tileset.tileheight |> float32
+                let texture = textureCache.Load ("game/assets/map/tilesets/" + tile.Tileset.image)
+
+                let modX = (if tile.Reference.FlipX && not (tile.Reference.FlipD) then -1 else 1) |> float32
+                let modY = (if tile.Reference.FlipY && not (tile.Reference.FlipD) then -1 else 1) |> float32
+                let modR = if tile.Reference.FlipY then -90.0f else 90.0f
+                let r = (if tile.Reference.FlipD then modR else 0.0f)
+                let ox = if tile.Reference.FlipX then 0.0f else 16.0f
+                let oy = if tile.Reference.FlipY then 0.0f else 16.0f
+                let origin = if tile.Reference.FlipD then Vector2(ox, oy) else Vector2(0.0f, 0.0f)
+                let rect = Rectangle( tile.SourceRect.x, tile.SourceRect.y, tile.SourceRect.width * modX, tile.SourceRect.height * modY )
 
                 Raylib.DrawTexturePro(
                     texture,
                     rect,
-                    Rectangle(x, y, tileset.tilewidth |> float32, tileset.tileheight |> float32),
+                    Rectangle(x, y, tile.Tileset.tilewidth |> float32, tile.Tileset.tileheight |> float32),
                     origin,
                     r,
                     Color.WHITE
                 )
+            | None -> ()
         )
-
-    let test () = 
-
-        let map = File.getJson<TiledMap> "game/assets/map/dungeon.json"
-        let layerData = map.layers |> Array.filter(fun layer -> layer.``type`` = "tilelayer") |> Array.map(fun layer -> layer.data)
-        let layers = layerData |> Array.map(fun l -> l |> Array.map getTile)
-        let tilesets = map.tilesets |> Array.map(fun ts -> 
-            { File.getJson<TiledTileset> ("game/assets/map/" + ts.source) with firstgid = ts.firstgid }
-        )
-        printfn "Map: %A, %A" layers tilesets
 
     let getDrawTest () = 
         let map = File.getJson<TiledMap> "game/assets/map/dungeon.json"
@@ -177,5 +219,9 @@ module Tiled =
         let tilesets = map.tilesets |> Array.map(fun ts -> 
             { File.getJson<TiledTileset> ("game/assets/map/" + ts.source) with firstgid = ts.firstgid }
         )
-        fun () ->
-            layers |> Array.iter(fun l -> l |> renderTileLayer map tilesets) |> ignore
+        let mutable instanceLayers = layers |> Array.map (getInstanceLayer tilesets)
+
+        let update dt =
+            instanceLayers <- instanceLayers |> Array.Parallel.map(fun l -> l |> updateTiles dt)
+        let draw () = instanceLayers |> Array.iter(fun l -> l |> renderTileLayer map tilesets) |> ignore
+        (update, draw)
