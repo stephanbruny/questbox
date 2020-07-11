@@ -1,0 +1,36 @@
+{
+    "Image": "game/assets/sprites/zoi-evil.png",
+    "States": {
+        "Default": [
+            { "X": 0, "Y": 48, "Width": 16, "Height": 16, "Duration": 1.0 }
+        ],
+        "Down": [
+            { "X": 0, "Y": 48, "Width": 16, "Height": 16, "Duration": 1.0 }
+        ],
+        "Up": [
+            { "X": 0, "Y": 16, "Width": 16, "Height": 16, "Duration": 1.0 }
+        ],
+        "Left": [
+            { "X": 0, "Y": 0, "Width": 16, "Height": 16, "Duration": 1.0 }
+        ],
+        "Right": [
+            { "X": 0, "Y": 32, "Width": 16, "Height": 16, "Duration": 1.0 }
+        ],
+        "WalkDown": [
+            { "X": 0, "Y": 48, "Width": 16, "Height": 16, "Duration": 0.2 },
+            { "X": 16, "Y": 48, "Width": 16, "Height": 16, "Duration": 0.2 }
+        ],
+        "WalkUp": [
+            { "X": 0, "Y": 16, "Width": 16, "Height": 16, "Duration": 0.2 },
+            { "X": 16, "Y": 16, "Width": 16, "Height": 16, "Duration": 0.2 }
+        ],
+        "WalkLeft": [
+            { "X": 0, "Y": 0, "Width": 16, "Height": 16, "Duration": 0.2 },
+            { "X": 16, "Y": 0, "Width": 16, "Height": 16, "Duration": 0.2 }
+        ],
+        "WalkRight": [
+            { "X": 0, "Y": 32, "Width": 16, "Height": 16, "Duration": 0.2 },
+            { "X": 16, "Y": 32, "Width": 16, "Height": 16, "Duration": 0.2 }
+        ]
+    }
+}

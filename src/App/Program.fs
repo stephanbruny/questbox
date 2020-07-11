@@ -30,15 +30,29 @@ type AppConfig = {
 }
 
 type Sparky (world : World) =
-    inherit PhysicsObject(messageBus, world)
-    let mutable animation = Animation.loadAnimation "game/assets/animation/sparky.json" |> Option.map (Animation.setAnimationState "Spark")
+    inherit PhysicsObject(messageBus, world, Vec2(8.0f, 8.0f))
+    let mutable animation = Animation.loadAnimation "game/assets/animation/zoi.json" |> Option.map (Animation.setAnimationState "Default")
+
+    let mutable lastAnimationState = "Default"
+
+    let setAnimationState name =
+        if name <> lastAnimationState then
+            lastAnimationState <- name
+            animation <- Animation.setAnimationState name animation.Value |> Some
 
     override this.OnUpdate dt =
         animation <- animation |> Option.map(Animation.updateAnimation dt) 
 
     override this.OnDraw () =
-        let pos = this.GetPosition()
+        let pos = this.GetCenter()
         animation |> Option.map(Animation.drawAnimation (pos.X, pos.Y)) |> ignore
+
+
+    override this.OnMove v =
+        if v.X < 0.0f then setAnimationState "WalkLeft"
+        if v.X > 0.0f then setAnimationState "WalkRight"
+        if v.Y < 0.0f then setAnimationState "WalkUp"
+        if v.Y > 0.0f then setAnimationState "WalkDown"
 
     [<Action ("input", "keyPressed")>]
     member this.OnKey (msg : MessageContent option) = 
@@ -63,6 +77,17 @@ type Sparky (world : World) =
             | _ -> ()
         | _ -> ()
 
+type Ball (world : World) = 
+    inherit PhysicsObject(messageBus, world, Vec2(8.0f, 8.0f))
+
+    let mutable animation = Animation.loadAnimation "game/assets/animation/sparky.json" |> Option.map (Animation.setAnimationState "Spark")
+
+    override this.OnUpdate dt =
+        animation <- animation |> Option.map(Animation.updateAnimation dt) 
+
+    override this.OnDraw () =
+        let pos = this.GetCenter()
+        animation |> Option.map(Animation.drawAnimation (pos.X, pos.Y)) |> ignore
 
 // type SparkyBehavior (sparky : Sparky) =
 //     inherit Behavior<Sparky>(messageBus, sparky)
@@ -150,12 +175,12 @@ let createMapCollisions (world : World) (map : Tiled.MapInstance) =
             box2dBody.FixedRotation <- true
             box2dBody.IsSleeping <- true
             let shape = PolygonDef()
-            shape.SetAsBox(rect.width, rect.height)
+            shape.SetAsBox(rect.width / 2.0f, rect.height / 2.0f)
             // shape.Density <- 0.0f
             let body = world.CreateBody(box2dBody)
             body.SetStatic()
             body.CreateFixture(shape) |> ignore
-            body.SetPosition(Vec2(rect.x, rect.y))
+            body.SetPosition(Vec2(rect.x + rect.width / 2.0f, rect.y + rect.height / 2.0f))
             body |> Some
         | None -> None
     )
@@ -232,11 +257,13 @@ let main argv =
     debugDraw.Flags <- DebugDraw.DrawFlags.Shape
 
     let sparky = Sparky(world)
+    let ball = Ball(world)
     let cam = Camera()
 
-    objects <- objects |> Array.append [| sparky; cam |]
+    objects <- objects |> Array.append [| sparky; ball; cam |]
 
     sparky.SetPosition 16.0f 16.0f
+    ball.SetPosition 48.0f 48.0f
 
     let mapColliders = createMapCollisions world map
 
