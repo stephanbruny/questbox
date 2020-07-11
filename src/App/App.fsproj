@@ -10,12 +10,14 @@
     <Compile Include="lib/Dispatcher.fs" />
     <Compile Include="lib/File.fs" />
     <Compile Include="lib/Geometry.fs" />
+    <Compile Include="lib/Input.fs" />
     <Compile Include="lib/TextureCache.fs" />
     <Compile Include="lib/Animation.fs" />
     <Compile Include="lib/Sprite.fs" />
     <Compile Include="lib/Tiled.fs" />
     <Compile Include="lib/Script.fs" />
     <Compile Include="lib/GameObject.fs" />
+    <Compile Include="lib/Physics.fs" />
     <Compile Include="Program.fs" />
   </ItemGroup>
 
@@ -26,6 +28,7 @@
   </ItemGroup>
 
   <ItemGroup>
+    <PackageReference Include="Box2D.NetStandard" Version="1.0.3" />
     <PackageReference Include="FSharp.Compiler" Version="3.0.0.0" />
     <PackageReference Include="FSharp.Compiler.Service" Version="36.0.3" />
     <PackageReference Include="FSharp.Data" Version="3.3.3" />

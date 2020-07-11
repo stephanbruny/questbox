@@ -40,8 +40,8 @@ module GameObject =
         abstract member OnRemove : unit -> unit;
         default this.OnRemove () = ()
 
-        member public this.SetPosition (x, y) =
-            position <- Vector2(x, y)
+        abstract member SetPosition : float32 -> float32 -> unit
+        default this.SetPosition x y = position <- Vector2(x, y)
 
         member public this.Move (x, y) =
             position.X <- position.X + x

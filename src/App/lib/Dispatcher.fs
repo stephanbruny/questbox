@@ -14,6 +14,7 @@ module Dispatcher =
     | Num of Number
     | Uid of Guid
     | Map of Map<string, MessageContent>
+    | Vector2D of Numerics.Vector2
     | Array of MessageContent []
 
     type Message = {
@@ -147,8 +148,8 @@ module Dispatcher =
         member public this.Destroy () =
             dispatcher.Unsubscribe self
 
-        member public this.Publish subject content = 
-            dispatcher.Publish subject content
+        member public this.Publish channel subject content = 
+            dispatcher.Publish channel subject content
 
         member public this.AddAction subject fn =
             actions <- actions |> Array.append [| (subject, fn) |]

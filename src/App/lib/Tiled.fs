@@ -117,8 +117,11 @@ module Tiled =
         Reference : TiledTileReference;
     }
 
-    type Layer = {
-        Tiles : Tile [];
+    type Layer = Tile option []
+
+    type MapInstance = {
+        Map : TiledMap;
+        Layers : Layer [];
     }
 
     let textureCache = Cache.GenericCache<Texture2D>(Raylib.LoadTexture, fun path texture -> Raylib.UnloadTexture texture)
@@ -183,7 +186,17 @@ module Tiled =
             else None
         )
 
-    let renderTileLayer map tilesets (layer : Tile option []) =
+    let getTilePosition map index =
+        Vector2(
+            (index % map.width) * map.tilewidth |> float32,
+            (index / map.width) * map.tileheight |> float32
+        )
+
+    let getTileRect map index =
+        let pos = getTilePosition map index
+        Rectangle(pos.X, pos.Y, map.tilewidth |> float32, map.tileheight |> float32)
+
+    let renderTileLayer map (layer : Tile option []) =
         layer |> Array.iteri(fun idx maybeTile ->
             match maybeTile with 
             | Some tile ->
@@ -212,6 +225,37 @@ module Tiled =
             | None -> ()
         )
 
+    let updateMap dt map =
+        { map with Layers = map.Layers |> Array.Parallel.map( fun layer -> layer |> updateTiles dt ) }
+
+    let isCollisionLayer (layer : TiledLayer) =
+        if isNull layer.properties then
+            false
+        else
+            match layer.properties |> Array.tryFind(fun prop -> prop.name = "collision" ) with
+            | Some prop -> match prop.value with | :? bool  -> prop.value :?> bool | _ -> false
+            | None -> false
+
+    let getMapCollider (map : MapInstance) =
+        let size = map.Map.width * map.Map.height
+        let collisionLayers = map.Map.layers |> Array.filter isCollisionLayer
+        let result = Array.create<bool> size false
+        result |> Array.Parallel.mapi(fun idx _ ->
+            match collisionLayers |> Array.tryFind(fun l -> l.data.[idx] <> 0u) with
+            | Some _ -> true
+            | None -> false
+        )
+
+    let getMapColliderRects (map : MapInstance) =
+        let collider = getMapCollider map
+        collider |> Array.Parallel.mapi(fun idx isSolid ->
+            if not isSolid then 
+                None
+            else
+                let pos = getTilePosition map.Map idx
+                getTileRect map.Map idx |> Some
+        )
+
     let getDrawTest () = 
         let map = File.getJson<TiledMap> "game/assets/map/dungeon.json"
         let layerData = map.layers |> Array.filter(fun layer -> layer.``type`` = "tilelayer") |> Array.map(fun layer -> layer.data)
@@ -223,5 +267,6 @@ module Tiled =
 
         let update dt =
             instanceLayers <- instanceLayers |> Array.Parallel.map(fun l -> l |> updateTiles dt)
-        let draw () = instanceLayers |> Array.iter(fun l -> l |> renderTileLayer map tilesets) |> ignore
-        (update, draw)
+        let draw () = instanceLayers |> Array.iter(fun l -> l |> renderTileLayer map) |> ignore
+        let mapInst = { Map = map; Layers = instanceLayers }
+        (update, draw, mapInst)
