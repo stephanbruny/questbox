@@ -12,6 +12,7 @@
     <Compile Include="lib/Geometry.fs" />
     <Compile Include="lib/Input.fs" />
     <Compile Include="lib/TextureCache.fs" />
+    <Compile Include="lib/Audio.fs" />
     <Compile Include="lib/Animation.fs" />
     <Compile Include="lib/Sprite.fs" />
     <Compile Include="lib/Tiled.fs" />

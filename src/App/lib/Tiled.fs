@@ -1,9 +1,11 @@
 namespace QuestBox
 
 open System.Numerics
+open System.IO
 open Raylib_cs
 open Newtonsoft.Json
 open QuestBox
+open System.Xml.Serialization
 
 module Tiled =
 
@@ -203,7 +205,7 @@ module Tiled =
                 let rows = map.width
                 let x = (idx % rows) * tile.Tileset.tilewidth |> float32
                 let y = (idx / rows) * tile.Tileset.tileheight |> float32
-                let texture = textureCache.Load ("game/assets/map/tilesets/" + tile.Tileset.image)
+                let texture = textureCache.Load tile.Tileset.image
 
                 let modX = (if tile.Reference.FlipX && not (tile.Reference.FlipD) then -1 else 1) |> float32
                 let modY = (if tile.Reference.FlipY && not (tile.Reference.FlipD) then -1 else 1) |> float32
@@ -255,6 +257,26 @@ module Tiled =
                 let pos = getTilePosition map.Map idx
                 getTileRect map.Map idx |> Some
         )
+
+    let drawMap (map : MapInstance) =
+        map.Layers |> Array.iter(fun l -> l |> renderTileLayer map.Map) |> ignore
+
+    let loadMap (path : string) = 
+        let directory = Path.GetDirectoryName path
+        let map = File.getJson<TiledMap> path
+        let layerData = map.layers |> Array.filter(fun layer -> layer.``type`` = "tilelayer") |> Array.map(fun layer -> layer.data)
+        let layers = layerData |> Array.map(fun l -> l |> Array.map getTile)
+        let tilesets = map.tilesets |> Array.map(fun ts -> 
+            let filepath = Path.Join [| directory; ts.source |]
+            let tileset = File.getJson<TiledTileset> (filepath)
+            let tsDirectory = Path.GetDirectoryName filepath
+            { tileset with firstgid = ts.firstgid; image = Path.Join(tsDirectory, tileset.image) }
+        )
+        let instanceLayers = layers |> Array.map (getInstanceLayer tilesets)
+        {
+            Map = map;
+            Layers = instanceLayers;
+        }
 
     let getDrawTest () = 
         let map = File.getJson<TiledMap> "game/assets/map/dungeon.json"

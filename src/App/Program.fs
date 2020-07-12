@@ -11,12 +11,13 @@ open QuestBox
 open QuestBox.Dispatcher
 open QuestBox.GameObject
 open QuestBox.Physics
+open QuestBox.Audio
 
 open Box2DX.Collision
 open Box2DX.Dynamics
 open Box2DX.Common
 
-let messageBus = Dispatcher.Dispatcher([| "foo"; "bar"; "input" |])
+let messageBus = Dispatcher.Dispatcher([| "system"; "game"; "player"; "input"; "objects"; "audio" |])
 
 
 type DisplayConfig = {
@@ -28,6 +29,12 @@ type AppConfig = {
     Display : DisplayConfig;
     VirtualDisplay : DisplayConfig;
 }
+
+type SpriteDirection =
+| Left
+| Right
+| Up
+| Down
 
 type Sparky (world : World) =
     inherit PhysicsObject(messageBus, world, Vec2(8.0f, 8.0f))
@@ -53,6 +60,17 @@ type Sparky (world : World) =
         if v.X > 0.0f then setAnimationState "WalkRight"
         if v.Y < 0.0f then setAnimationState "WalkUp"
         if v.Y > 0.0f then setAnimationState "WalkDown"
+
+        if v.X = 0.0f && v.Y = 0.0f then
+            let state =
+                match lastAnimationState with
+                | "WalkLeft" -> "Left"
+                | "WalkRight" -> "Right"
+                | "WalkUp" -> "Up"
+                | "WalkDown" -> "Down"
+                | _ -> lastAnimationState
+            // printfn "Last State: %s" lastAnimationState
+            setAnimationState state
 
     [<Action ("input", "keyPressed")>]
     member this.OnKey (msg : MessageContent option) = 
@@ -88,6 +106,10 @@ type Ball (world : World) =
     override this.OnDraw () =
         let pos = this.GetCenter()
         animation |> Option.map(Animation.drawAnimation (pos.X, pos.Y)) |> ignore
+
+    override this.OnCollide ids =
+        printfn "Collision %A" ids
+        this.Publish "audio" "play" (Some (Text "kick"))
 
 // type SparkyBehavior (sparky : Sparky) =
 //     inherit Behavior<Sparky>(messageBus, sparky)
@@ -185,52 +207,25 @@ let createMapCollisions (world : World) (map : Tiled.MapInstance) =
         | None -> None
     )
 
-type DebugDrawBox2D () = 
-    inherit DebugDraw()
-
-    override this.DrawPolygon(points : Vec2 [], count : int, color : Color) =
-        let vertices = points |> Array.map(fun p -> Vector2(p.X, p.Y))
-        Raylib.DrawLineStrip(vertices, count, Color.GREEN)
-
-    override this.DrawSolidPolygon(points : Vec2 [], count : int, color : Color) =
-        let vertices = points |> Array.truncate count |> Array.rev |> Array.map(fun p -> Vector2(p.X, p.Y))
-        Raylib.DrawLineStrip(vertices, count, Color.RED)
-
-    override this.DrawCircle (center, radius, color) =
-        Raylib.DrawCircle(int center.X, int center.Y, radius, Color.GREEN)
-
-    override this.DrawSolidCircle (center, radius, axis, color) =
-        Raylib.DrawCircle(int center.X, int center.Y, radius, Color.RED)
-
-    override this.DrawSegment (p1, p2, _) =
-        Raylib.DrawLine(int p1.X, int p1.Y, int p2.X, int p2.Y, Color.GREEN)
-
-    override this.DrawXForm form = ()
-
 [<EntryPoint>]
 let main argv =
 
     let config = File.getJson<AppConfig> "game/conf.json"
     printf "Config: %A\n" config
-    Raylib.SetConfigFlags(ConfigFlag.FLAG_VSYNC_HINT)
+    // Raylib.SetConfigFlags(ConfigFlag.FLAG_VSYNC_HINT)
     Raylib.InitWindow(config.Display.Width, config.Display.Height, "Questbox")
+    Raylib.InitAudioDevice()
 
     let canvas = Raylib.LoadRenderTexture(config.VirtualDisplay.Width, config.VirtualDisplay.Height)
-
-    let mutable objects : BaseObject [] = Array.empty
-
-    let addItem arr obj = arr |> Array.append [| obj |]
-    let addObjects = addItem objects
-
-
-    messageBus.Publish "foo" "foo" None
 
     Raylib.SetTargetFPS 60
 
     let canvasSource = Rectangle(0.0f, 0.0f, float32 config.VirtualDisplay.Width, float32 -config.VirtualDisplay.Height)
     let canvasDestination = Rectangle(0.0f, 0.0f, float32 config.Display.Width, float32 config.Display.Height)
 
-    let (updateMap, drawMap, map) = QuestBox.Tiled.getDrawTest ()
+    let currentMap = Tiled.loadMap "game/assets/map/dungeon.json"
+
+    // let (updateMap, drawMap, map) = QuestBox.Tiled.getDrawTest ()
 
     let drawCanvas () = 
         Raylib.DrawTexturePro(canvas.texture, canvasSource, canvasDestination, Vector2(0.0f, 0.0f), 0.0f, Color.WHITE)
@@ -252,6 +247,7 @@ let main argv =
     worldBounds.UpperBound.Set(1000.0f)
 
     let world = new World(worldBounds, Vec2(0.0f, 0.0f), false)
+    world.SetContactListener(PhysicsContactListener(messageBus))
     let debugDraw = DebugDrawBox2D()
     // world.SetDebugDraw(debugDraw)
     debugDraw.Flags <- DebugDraw.DrawFlags.Shape
@@ -260,44 +256,42 @@ let main argv =
     let ball = Ball(world)
     let cam = Camera()
 
-    objects <- objects |> Array.append [| sparky; ball; cam |]
+    let gameObjects : BaseObject [] = [| sparky; ball; cam |]
 
     sparky.SetPosition 16.0f 16.0f
     ball.SetPosition 48.0f 48.0f
 
-    let mapColliders = createMapCollisions world map
+    let mapColliders = createMapCollisions world currentMap
 
-    while (not(Raylib.WindowShouldClose())) do
-        let dt = Raylib.GetFrameTime()
-        // try
-        //     world.Step(dt, 8, 2)
-        // with 
-        // | :? System.Exception as ex -> printfn "Exception in Box2D %A" ex
-        objects |> Array.Parallel.iter(fun o -> o.OnUpdate (dt))
-        updateMap dt
-        inputActor.EnumerateKeys()
-        Raylib.BeginTextureMode canvas
-        Raylib.BeginMode2D(cam.Camera)
-        Raylib.ClearBackground(Color.BLACK)
-        drawMap ()
-        for o in objects do
-            o.OnDraw()
-        world.Step(dt, 8, 2)
-        Raylib.EndMode2D()
-        Raylib.EndTextureMode()
+    let audioPlayer = AudioPlayer(messageBus, "game/assets/sound")
 
-        Raylib.BeginDrawing()
-        Raylib.ClearBackground(Color.BLUE)
+    let rec gameLoop map (objects : BaseObject []) = 
+        if Raylib.WindowShouldClose() then () else
+            let dt = Raylib.GetFrameTime()
+            let nextMap = Tiled.updateMap dt map
+            objects |> Array.Parallel.iter(fun o -> o.OnUpdate (dt))
+            inputActor.EnumerateKeys()
+            Raylib.BeginTextureMode canvas
+            Raylib.BeginMode2D(cam.Camera)
+            Raylib.ClearBackground(Color.BLACK)
+            Tiled.drawMap map
+            for o in objects do
+                o.OnDraw()
+            world.Step(dt, 8, 2)
+            Raylib.EndMode2D()
+            Raylib.EndTextureMode()
 
-        drawCanvas()
+            Raylib.BeginDrawing()
+            Raylib.ClearBackground(Color.BLUE)
 
-        Raylib.DrawFPS(10, 10)
+            drawCanvas()
 
-        Raylib.EndDrawing()
-        
-        // messageBus.Flush ()
+            Raylib.DrawFPS(10, 10)
 
-    // QuestBox.Tiled.test()
+            Raylib.EndDrawing() 
+            gameLoop nextMap objects
+
+    gameLoop currentMap gameObjects
 
     Raylib.UnloadRenderTexture canvas
 
